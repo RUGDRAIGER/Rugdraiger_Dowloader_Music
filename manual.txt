@@ -1,0 +1,366 @@
+================================================================================
+MANUAL DE USO — RUGDRAIGER DOWNLOADER MUSIC
+Proyecto: PROYECTO BOMBERO
+Versión app: 1.0.0
+Última actualización: 29/05/2026
+================================================================================
+
+Este manual explica paso a paso cómo descargar una canción (tema) de YouTube
+Music con la aplicación Rugdraiger Downloader Music.
+
+
+--------------------------------------------------------------------------------
+0. ANTES DE EMPEZAR — REQUISITOS
+--------------------------------------------------------------------------------
+
+Para que la descarga funcione bien, tu PC debe tener:
+
+  • Windows 10 u 11
+  • La app instalada (win install\dist\Rugdraiger_Dowloader_Music.exe)
+    O ejecutada con run.bat si usas la versión de desarrollo
+  • Conexión a Internet
+
+Recomendado (no obligatorio, pero mejora mucho la experiencia):
+
+  • ffmpeg instalado en el sistema
+    → Para incrustar carátula y metadatos en el archivo de audio
+    → Instalar: winget install Gyan.FFmpeg
+
+  • Node.js LTS instalado
+    → Para resolver desafíos técnicos de YouTube
+    → Instalar: winget install OpenJS.NodeJS.LTS
+
+Al abrir la app, mira la línea inferior (pie de pantalla). Ahí verás el estado
+de yt-dlp, ffmpeg y Node.js. Si ffmpeg aparece con [!], las descargas pueden
+funcionar pero sin carátula embebida.
+
+
+--------------------------------------------------------------------------------
+1. ABRIR LA APLICACIÓN
+--------------------------------------------------------------------------------
+
+Opción A — Si instalaste con el instalador:
+  1. Busca "Rugdraiger Downloader Music" en el menú Inicio de Windows.
+  2. Haz clic para abrir la aplicación.
+
+Opción B — Si usas la versión de desarrollo:
+  1. Ve a la carpeta del proyecto.
+  2. Ejecuta run.bat (doble clic).
+
+Verás una ventana con fondo negro carbón, borde rojo y el logo Rugdraiger.
+
+
+--------------------------------------------------------------------------------
+2. CONSEGUIR EL ENLACE DE LA CANCIÓN EN YOUTUBE MUSIC
+--------------------------------------------------------------------------------
+
+Este paso se hace en el navegador, NO en la app.
+
+  1. Abre https://music.youtube.com en tu navegador.
+  2. Busca la canción que quieres descargar.
+  3. Haz clic en la canción para abrirla (pantalla de reproducción).
+  4. Copia la URL de la barra de direcciones del navegador.
+
+Ejemplos de enlaces válidos para UNA CANCIÓN:
+
+  https://music.youtube.com/watch?v=XXXXXXXXXXX
+  https://www.youtube.com/watch?v=XXXXXXXXXXX
+
+  (XXXXXXXXXXX es el código único del video/canción)
+
+IMPORTANTE:
+  • Usa el enlace de la canción individual, no solo el nombre.
+  • También puedes pegar enlaces de playlist o álbum; la app los soporta.
+  • Este manual se centra en descargar UN TEMA (una canción).
+
+
+--------------------------------------------------------------------------------
+3. CAMPO: ENLACE YOUTUBE MUSIC
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Sección "ENLACE YOUTUBE MUSIC" → campo de texto grande.
+
+Qué hacer:
+  1. Haz clic dentro del campo.
+  2. Pega el enlace que copiaste (Ctrl + V).
+  3. Comprueba que empiece por music.youtube.com o youtube.com.
+
+Ejemplo pegado:
+  https://music.youtube.com/watch?v=dQw4w9WgXcQ
+
+Si el campo queda vacío y pulsas DESCARGAR, la app avisará "URL vacía".
+
+
+--------------------------------------------------------------------------------
+4. CAMPO: ÍTEMS PLAYLIST
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Debajo del enlace → etiqueta "Ítems playlist:" → campo pequeño.
+
+Para descargar UN SOLO TEMA:
+  • DEJA ESTE CAMPO VACÍO.
+  • No escribas nada.
+
+Para qué sirve:
+  • Solo se usa cuando pegas un enlace de PLAYLIST o ÁLBUM completo.
+  • Permite limitar qué canciones bajar de esa lista.
+
+Ejemplos (solo si usas playlist):
+  1        → descarga solo la canción n.º 1 de la lista
+  1-5      → descarga de la 1 a la 5
+  1,3,7    → descarga las posiciones 1, 3 y 7
+
+Para un tema suelto: vacío.
+
+
+--------------------------------------------------------------------------------
+5. CAMPO: FORMATO
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Sección "OPCIONES DE CALIDAD" → menú desplegable "Formato:"
+
+Opciones disponibles:
+
+  m4a   ← RECOMENDADO (sobre todo con Premium)
+        Descarga AAC nativo sin re-comprimir.
+        Con YouTube Music Premium + cookies: ~256 kbps.
+        Es el mejor equilibrio calidad / compatibilidad.
+
+  opus  ← Bueno para cuenta gratuita
+        Formato Opus nativo (~128 kbps).
+        Muy eficiente y buena calidad para streaming web.
+
+  best  ← Deja el contenedor original tal cual
+        Sin conversión. Útil si quieres el formato exacto que sirve YouTube.
+
+  mp3   ← Solo si lo necesitas específicamente
+        Convierte el audio a MP3 (pierde calidad respecto al original).
+        NO recomendado si buscas máxima fidelidad.
+
+Para descargar UN TEMA con buena calidad:
+  → Elige: m4a
+
+
+--------------------------------------------------------------------------------
+6. CAMPO: DESTINO
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Sección "OPCIONES DE CALIDAD" → "Destino:" → campo de ruta + botón Examinar
+
+Qué es:
+  La carpeta de tu PC donde se guardará el archivo de música descargado.
+
+Valor por defecto:
+  C:\Users\TU_USUARIO\Music\Rugdraiger Downloads
+
+Cómo cambiarlo:
+  1. Haz clic en "Examinar".
+  2. Elige la carpeta que quieras (por ejemplo: Música, Disco D:\Música, etc.).
+  3. Confirma.
+
+El nombre del archivo se genera automáticamente con este patrón:
+  Artista - Título.m4a
+  (o .opus / .mp3 según el formato elegido)
+
+
+--------------------------------------------------------------------------------
+7. OPCIÓN: USAR COOKIES DEL NAVEGADOR (PREMIUM)
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Casilla: "Usar cookies del navegador (YouTube Music Premium → AAC 256 kbps)"
+  + menú del navegador al lado (firefox, chrome, edge, etc.)
+
+¿Cuándo activarla?
+  • SI tienes cuenta de YouTube Music Premium → ACTÍVALA.
+  • Si usas cuenta gratuita → DÉJALA DESACTIVADA.
+
+¿Qué hace?
+  • Lee las cookies de sesión de tu navegador.
+  • Permite a yt-dlp acceder al flujo de audio de alta calidad (AAC 256 kbps)
+    que YouTube Music reserva para usuarios Premium.
+
+Pasos si tienes Premium:
+  1. Abre YouTube Music en el navegador que vayas a seleccionar.
+  2. Inicia sesión con tu cuenta Premium.
+  3. En la app, marca la casilla de cookies.
+  4. En el menú desplegable, elige el mismo navegador.
+     → Firefox suele ser el más fiable.
+     → Chrome/Edge también funcionan, pero a veces dan más problemas.
+
+Si NO tienes Premium:
+  • Deja la casilla desmarcada.
+  • La descarga usará calidad gratuita (~128 kbps Opus).
+
+
+--------------------------------------------------------------------------------
+8. OPCIONES: INCrustar CARÁTULA Y METADATOS
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Dos casillas debajo de la opción Premium:
+
+  [x] Incrustar carátula
+  [x] Incrustar metadatos
+
+Recomendación:
+  • Deja AMBAS activadas (marcadas).
+
+Qué hace cada una:
+
+  Incrustar carátula:
+    → Guarda la portada del álbum dentro del archivo de audio.
+    → Necesita ffmpeg instalado.
+
+  Incrustar metadatos:
+    → Guarda artista, título y demás info ID3/tag en el archivo.
+    → También necesita ffmpeg.
+
+Si ffmpeg no está instalado, la descarga del audio puede completarse igual,
+pero sin carátula ni tags embebidos.
+
+
+--------------------------------------------------------------------------------
+9. DESCARGAR EL TEMA — BOTÓN PRINCIPAL
+--------------------------------------------------------------------------------
+
+Ubicación en la app:
+  Botón rojo grande: "⬇ DESCARGAR"
+
+Pasos:
+  1. Comprueba que el enlace está pegado.
+  2. Comprueba formato (m4a recomendado).
+  3. Comprueba carpeta destino.
+  4. Haz clic en DESCARGAR.
+
+Qué verás durante la descarga:
+  • El botón DESCARGAR se desactiva.
+  • El botón "Cancelar" se activa.
+  • La barra de progreso roja avanza.
+  • El texto de estado cambia (ej.: "Descargando…").
+  • El panel LOG muestra detalles técnicos de yt-dlp.
+
+Cuando termina:
+  • Aparece un mensaje "Descarga completa".
+  • El archivo estará en la carpeta Destino que configuraste.
+
+
+--------------------------------------------------------------------------------
+10. EJEMPLO COMPLETO — DESCARGAR UN TEMA (CUENTA GRATUITA)
+--------------------------------------------------------------------------------
+
+  1. Abrir Rugdraiger Downloader Music.
+  2. Ir a music.youtube.com → buscar canción → copiar enlace.
+  3. Pegar enlace en "Enlace YouTube Music".
+  4. Ítems playlist: dejar VACÍO.
+  5. Formato: opus (o m4a).
+  6. Destino: dejar el predeterminado o elegir carpeta con Examinar.
+  7. Cookies del navegador: DESACTIVADO.
+  8. Incrustar carátula: ACTIVADO.
+  9. Incrustar metadatos: ACTIVADO.
+  10. Clic en DESCARGAR.
+  11. Esperar a "Descarga completa".
+  12. Ir a la carpeta destino y reproducir el archivo.
+
+
+--------------------------------------------------------------------------------
+11. EJEMPLO COMPLETO — DESCARGAR UN TEMA (CUENTA PREMIUM)
+--------------------------------------------------------------------------------
+
+  1. Iniciar sesión en music.youtube.com con Firefox (cuenta Premium).
+  2. Abrir Rugdraiger Downloader Music.
+  3. Copiar enlace de la canción desde YouTube Music.
+  4. Pegar enlace en la app.
+  5. Ítems playlist: VACÍO.
+  6. Formato: m4a  ← importante para AAC 256 kbps nativo.
+  7. Destino: carpeta deseada.
+  8. Activar "Usar cookies del navegador".
+  9. Seleccionar navegador: firefox.
+  10. Carátula y metadatos: activados.
+  11. Clic en DESCARGAR.
+  12. Archivo resultante: Artista - Título.m4a en calidad Premium.
+
+
+--------------------------------------------------------------------------------
+12. OTROS BOTONES ÚTILES
+--------------------------------------------------------------------------------
+
+  Cancelar
+    → Detiene una descarga en curso.
+
+  Formatos
+    → Lista en el LOG qué calidades/formatos tiene disponible ese enlace.
+    → Útil para diagnosticar si Premium está funcionando.
+    → Pega el enlace primero, luego pulsa Formatos.
+
+  Actualizar yt-dlp
+    → Descarga la última versión del motor yt-dlp.
+    → Úsalo si YouTube cambia algo y las descargas fallan.
+
+
+--------------------------------------------------------------------------------
+13. DÓNDE QUEDA EL ARCHIVO DESCARGADO
+--------------------------------------------------------------------------------
+
+Por defecto:
+  C:\Users\TU_USUARIO\Music\Rugdraiger Downloads\
+
+Nombre típico:
+  Nombre del Artista - Nombre de la Canción.m4a
+
+Puedes abrir esa carpeta en el Explorador de Windows y reproducir el tema con
+cualquier reproductor (Rugdraiger Play, VLC, Windows Media Player, etc.).
+
+
+--------------------------------------------------------------------------------
+14. PROBLEMAS FRECUENTES Y SOLUCIÓN
+--------------------------------------------------------------------------------
+
+  "URL vacía"
+    → No pegaste ningún enlace. Copia la URL de YouTube Music.
+
+  "URL inválida"
+    → El enlace no es de YouTube Music ni YouTube. Copia la URL correcta.
+
+  Descarga a 128 kbps teniendo Premium
+    → Activa cookies del navegador.
+    → Usa Firefox.
+    → Asegúrate de estar logueado en YT Music en ese navegador.
+    → Pulsa Formatos y comprueba si aparece formato 141 (AAC 256k).
+
+  Error de formato / "Requested format is not available"
+    → Pulsa "Actualizar yt-dlp".
+    → Instala Node.js LTS.
+    → Con Premium, activa cookies y prueba Firefox.
+
+  No se incrusta la carátula
+    → Instala ffmpeg: winget install Gyan.FFmpeg
+    → Cierra y vuelve a abrir la app.
+
+  La descarga no avanza
+    → Revisa tu conexión a Internet.
+    → Mira el LOG para ver el error exacto.
+    → Prueba Actualizar yt-dlp.
+
+
+--------------------------------------------------------------------------------
+15. RESUMEN RÁPIDO (UN TEMA)
+--------------------------------------------------------------------------------
+
+  Enlace     → Pegar URL de la canción desde music.youtube.com
+  Ítems      → Vacío (solo para playlists)
+  Formato    → m4a (Premium) o opus (gratis)
+  Destino    → Carpeta donde guardar
+  Cookies    → Activar solo si tienes Premium
+  Navegador  → firefox (recomendado con Premium)
+  Carátula   → Activada
+  Metadatos  → Activado
+  Acción     → DESCARGAR
+
+================================================================================
+Fin del manual — Rugdraiger Downloader Music
+================================================================================

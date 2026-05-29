@@ -1,0 +1,58 @@
+================================================================================
+REGLA DE ORO — REGLAMENTO DE TRABAJO PARA EL ASISTENTE (IA)
+Proyecto: PROYECTO Rugdraiger_Dowloader_Music
+Última actualización: 29/05/2026
+================================================================================
+
+Este documento recoge las reglas de trabajo acordadas con el usuario.
+Deben aplicarse en todas las tareas del proyecto salvo indicación contraria explícita.
+
+--------------------------------------------------------------------------------
+REGLAS
+--------------------------------------------------------------------------------
+
+1. NO BORRAR NADA
+   No eliminar archivos, código, configuraciones ni datos salvo que el usuario
+   lo pida explícitamente y dé autorización para hacerlo.
+
+2. MODALIDAD DE TRABAJO (ciclo hasta que funcione)
+   - Crear
+   - Probar
+   - Corregir
+   - Probar de nuevo
+   - Repetir el ciclo (loop) hasta que funcione de maravillas
+   - Después publicar en la web de GitHub para poder probar desde otro dispositivo
+
+3. COMANDO «SUBE TODO»
+   Cuando el usuario diga «sube todo», significa en este orden:
+   - Guardar todo (cambios locales)
+   - Guardar en el repositorio (commit)
+   - Guardar en la nube de GitHub (push al remoto)
+
+4. AVISO ANTES DE ACCIONES DE RIESGO
+   Notificar al usuario ANTES de proceder si lo que se va a hacer puede:
+   - Perjudicar el entorno del dispositivo
+   - Afectar el funcionamiento del sistema
+   - Alterar configuraciones
+   - Impactar juegos u otro software instalado
+   Esperar confirmación del usuario antes de continuar en esos casos.
+
+5. BITÁCORA (VITACORA) DEL SEGUNDO CEREBRO
+   - Mantener un registro cronológico de eventos en la carpeta OBSIDIAN.
+   - Archivo activo: Meta/vitacora.md
+   - Registrar cada sesión, cambio relevante, decisión o evento importante.
+   - Cuando vitacora.md alcance aproximadamente 5000 líneas, cerrar ese
+     archivo y continuar en vitacora02.md, luego vitacora03.md, y así sucesivamente.
+   - Cada entrada debe incluir: fecha, tipo de evento y descripción breve.
+   - No borrar bitácoras anteriores; son historial permanente.
+
+
+--------------------------------------------------------------------------------
+NOTAS
+--------------------------------------------------------------------------------
+- Las reglas nuevas se numeran en orden consecutivo.
+- Si una regla contradice una instrucción puntual del usuario en el chat,
+  prevalece lo que el usuario diga en ese momento.
+- Este archivo es la referencia permanente del proyecto.
+
+================================================================================

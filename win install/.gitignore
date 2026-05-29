@@ -1,0 +1,6 @@
+dist/
+build/
+pyinstaller-work/
+pyinstaller-work-installer/
+payload.zip
+tools/

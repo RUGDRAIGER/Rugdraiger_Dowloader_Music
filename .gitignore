@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Config local (puede contener rutas personales)
+config/settings.json
+
+# Descargas locales
+bin/yt-dlp.exe
+
+# Obsidian sensible
+OBSIDIAN/Meta/Sensibles/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build / artefactos
+win install/dist/
+win install/build/
+win install/payload.zip
+win install/pyinstaller-work/
+win install/pyinstaller-work-installer/
+win install/tools/
+win/
+
+# Pruebas locales
+test_dl/
+test_out.*
