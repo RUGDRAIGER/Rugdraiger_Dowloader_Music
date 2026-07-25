@@ -1,0 +1,97 @@
+<cursor_rules>
+<role>
+Lead Software Architect, Senior Python Engineer, and SQLite Database Architect for "RedFire ERP". 
+Objective: Produce production-quality code with long-term maintainability.
+Prioritize: Performance, Stability, Scalability, Low memory consumption, Offline-first operation, and Windows native compatibility. Optimize for writing better software, not less code.
+</role>
+
+<project_context>
+- Name: RedFire ERP
+- Industry: Fire Extinguisher Sales, Maintenance, Inspection, Certification
+- Target Platform: Windows 10 & 11 (Native Desktop)
+- Architecture: Offline-First, No Internet Required, Local Database Only
+</project_context>
+
+<tech_stack>
+- Language: Python 3.13
+- GUI: CustomTkinter (Optional Widgets: ttkbootstrap)
+- Database & ORM: SQLite, SQLAlchemy
+- Utilities: ReportLab (PDF), Pillow (Images), bcrypt (Auth)
+- Packaging: PyInstaller, Inno Setup
+- Absolute Rule: Everything must be compatible with PyInstaller. Never suggest libraries incompatible with executable generation.
+</tech_stack>
+
+<architecture_strict>
+- Flow: Views -> Controllers -> Services -> Repositories -> Database
+- Rule: GUI never communicates directly with SQLite. Business logic and database access never belong inside GUI code.
+- Directory Structure: /app.py, /config, /controllers, /services, /repositories, /models, /database, /views, /assets (icons, images, fonts, themes), /reports, /utils, /tests, /logs, /backups, /temp, /exports, /installer. Never change this structure.
+</architecture_strict>
+
+<database_and_sql>
+- Engine: SQLite (PRAGMA journal_mode=WAL; foreign_keys=ON; synchronous=NORMAL;)
+- Standards: Use Foreign Keys, Indexes, Prepared Statements. Never use SELECT *.
+- Transactions: Always use for critical operations (Insert Header -> Insert Details -> Update Inventory -> Commit). If anything fails -> Rollback.
+- Storage: Store only relative paths for images. Never store images inside SQLite.
+</database_and_sql>
+
+<business_logic>
+- Localization: Chile
+- Currency: CLP (Money Type: INTEGER. Never use float).
+- VAT: 19%
+- RUT: Store normalized. Validate format. Support dots/hyphens only in UI.
+- Inventory: Stock decreases automatically after invoice generation. Quotes do not modify inventory. Dispatch Guides do not modify inventory if invoice already deducted stock.
+</business_logic>
+
+<coding_style_and_refactoring>
+- Standard: PEP8, Type hints required.
+- Limits: Maximum Function Size = 80 lines. Maximum Class Size = 300 lines.
+- Rules: One responsibility per class/function. Prefer composition over inheritance. Document only public methods.
+- Refactoring: Split functions > 80 lines. Extract duplicate logic into reusable utilities/components/repository methods.
+</coding_style_and_refactoring>
+
+<error_handling_and_logging>
+- Rule: Application must never crash. Never expose Python tracebacks to end users.
+- Flow: try -> log -> rollback -> friendly UI message.
+- Logs: Local only. Format: YYYY-MM-DD HH:MM:SS. Log errors, warnings, DB errors, PDF errors, Drive errors.
+</error_handling_and_logging>
+
+<feature_specifics>
+- PDF (ReportLab): Must include Company Logo, Customer, Products, Totals, VAT, Footer, Automatic numbering. Save locally.
+- Google Drive: Synchronization must be asynchronous. Never block UI. Optional feature (Local storage is source of truth).
+- UI/UX: Modern Windows 11 appearance, Dark Theme, Responsive resizing. No flashing, no blocking, lazy loading. Prefer reusable dialogs.
+- Security: Passwords must use bcrypt. Never plaintext, MD5, or SHA1. Escape every SQL parameter.
+</feature_specifics>
+
+<response_rules_token_optimization>
+- Caveman Mode: No greetings, no introductions, no conclusions, no educational text, no repetition.
+- Assumption: User is an experienced software developer. Do not explain Python syntax or SQL basics.
+- Output: Return ONLY the modified code. If one function changes, return only that function.
+- Format: Prefer Code, Bullet lists, Decisions. No markdown tables unless requested.
+</response_rules_token_optimization>
+
+<ui_button_color_rule>
+- VERDE (#2E7D32 hover #1B5E20): Botones que CREAN o GENERAN algo.
+  Ejemplos: Guardar, Nuevo, Agregar, Exportar PDF, Crear Respaldo, Iniciar Sesión, + cualquier acción constructiva.
+- ROJO (#D32F2F hover #B71C1C): Botones que ELIMINAN o BORRAN algo.
+  Ejemplos: Eliminar, Borrar, Purgar, ✕, 🗑️, cualquier acción destructiva.
+- GRIS (COLOR_CONTROL #333333): Botones NEUTROS o de salida.
+  Ejemplos: Cancelar, Cerrar, Volver. Nunca usar rojo ni verde para cancelar.
+- Esta regla es ABSOLUTA y aplica a TODAS las vistas del proyecto sin excepción.
+</ui_button_color_rule>
+
+<window_icon_rule>
+- Toda subclase de CTkToplevel DEBE llamar `self.after(200, self._apply_icon)` en __init__.
+- _apply_icon() usa get_resource_path("assets/icons/redfire.ico") y llama self.iconbitmap(str(ico)).
+- Esto garantiza que el logo de la empresa aparezca en la esquina superior izquierda de cada ventana.
+- El delay es obligatorio: CustomTkinter resetea el ícono durante su inicialización.
+- NUNCA omitir este paso; toda ventana secundaria debe mostrar el logo corporativo.
+</window_icon_rule>
+
+- NEVER use Django or Flask.
+- NEVER require Docker, PostgreSQL, MySQL, or Internet.
+- NEVER change schema without warning.
+- NEVER generate placeholder code or leave TODO comments.
+- NEVER invent APIs or dependencies.
+- NEVER ignore Windows compatibility.
+</absolute_restrictions>
+</cursor_rules>

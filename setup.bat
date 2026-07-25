@@ -16,26 +16,30 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [1/3] Creando entorno virtual...
+echo [1/4] Creando entorno virtual...
 if not exist ".venv" python -m venv .venv
 
-echo [2/3] Instalando dependencias Python...
+echo [2/4] Instalando dependencias Python...
 call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-echo [3/3] Descargando yt-dlp...
+echo [3/4] Descargando yt-dlp...
 if not exist "bin" mkdir bin
 powershell -Command "Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile 'bin\yt-dlp.exe' -UseBasicParsing"
+
+echo [4/4] Descargando ffmpeg y Node.js (incluidos en la app)...
+python scripts\fetch_runtime_deps.py
+if errorlevel 1 (
+    echo [AVISO] No se pudieron descargar ffmpeg/Node. La app funcionara con limitaciones.
+)
 
 echo.
 echo  ═══════════════════════════════════════════
 echo   Instalacion completada.
 echo.
-echo   IMPORTANTE — Para maxima calidad instala tambien:
-echo   • ffmpeg  → winget install Gyan.FFmpeg
-echo   • Node.js → winget install OpenJS.NodeJS.LTS
-echo     (necesario para desafios JS de YouTube)
+echo   ffmpeg y Node.js se empaquetan con la app.
+echo   No necesitas winget ni instalaciones extra.
 echo.
 echo   Ejecuta run.bat para abrir la aplicacion.
 echo  ═══════════════════════════════════════════

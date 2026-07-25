@@ -16,9 +16,12 @@ Interfaz visual alineada con [Rugdraiger Play](https://rugdraiger.github.io/rugd
 ## Requisitos
 
 - Windows 10/11
-- Python 3.11+ ([python.org](https://www.python.org/downloads/))
-- **ffmpeg** — metadatos y carátulas: `winget install Gyan.FFmpeg`
-- **Node.js LTS** (opcional pero recomendado) — desafíos JS de YouTube: `winget install OpenJS.NodeJS.LTS`
+- Conexión a Internet (solo para descargar música)
+
+**Incluido en el instalador** (no hace falta instalar nada más):
+- yt-dlp, **ffmpeg**, **Node.js**
+
+Para desarrollo local además necesitas Python 3.11+ y ejecutar `setup.bat` una vez.
 
 ## Instalación rápida
 

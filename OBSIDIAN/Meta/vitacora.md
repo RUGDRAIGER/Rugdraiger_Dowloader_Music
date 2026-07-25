@@ -37,4 +37,17 @@ Registro cronológico del proyecto **PROYECTO BOMBERO** (Rugdraiger Downloader M
 - Usuario pidio "guarda todo".
 - Inicializado repositorio git local con commit del estado completo del proyecto.
 
+## 2026-07-25 | TEST | Verificacion playlist completa
+
+- Verificado descarga de playlists (youtube.com y music.youtube.com).
+- Mejoras: --yes-playlist, nombres 01 - Artista - Titulo, progreso por cancion.
+- Pruebas OK: tests/test_playlist_download.py (3 escenarios).
+- Instalador recompilado.
+
+## 2026-07-25 | PACK | ffmpeg y Node.js incluidos en el instalador
+
+- Script scripts/fetch_runtime_deps.py descarga ffmpeg + Node LTS a bin/.
+- Se empaquetan con PyInstaller; el usuario no necesita winget ni pasos extra.
+- setup.bat y build-installer.ps1 ejecutan el script automaticamente.
+
 ---

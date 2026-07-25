@@ -17,6 +17,7 @@ YTDLP_RELEASE_URL = (
 YTDLP_PATH = BIN_DIR / "yt-dlp.exe"
 FFMPEG_PATH = BIN_DIR / "ffmpeg.exe"
 FFPROBE_PATH = BIN_DIR / "ffprobe.exe"
+NODE_PATH = BIN_DIR / "node.exe"
 
 
 def _run(cmd: list[str], timeout: int = 15) -> tuple[int, str]:
@@ -91,6 +92,8 @@ def ffmpeg_location_args() -> list[str]:
 
 
 def js_runtime_args() -> list[str]:
+    if NODE_PATH.exists():
+        return ["--js-runtimes", f"node:{BIN_DIR}"]
     for runtime in ("node", "deno", "bun"):
         if shutil.which(runtime):
             return ["--js-runtimes", runtime]
@@ -103,6 +106,8 @@ def check_ffmpeg() -> tuple[bool, str]:
     if ffmpeg and ffprobe:
         code, out = _run([ffmpeg, "-version"])
         version_line = out.split("\n")[0] if out else "desconocida"
+        if FFMPEG_PATH.exists() and Path(ffmpeg).resolve() == FFMPEG_PATH.resolve():
+            return True, f"{version_line} (incluido)"
         return True, version_line
     missing = []
     if not ffmpeg:
@@ -113,6 +118,11 @@ def check_ffmpeg() -> tuple[bool, str]:
 
 
 def check_js_runtime() -> tuple[bool, str]:
+    if NODE_PATH.exists():
+        code, out = _run([str(NODE_PATH), "--version"])
+        if code == 0:
+            version = out.split("\n")[0] if out else "incluido"
+            return True, f"node {version} (incluido)"
     for runtime, args in (
         ("node", ["--version"]),
         ("deno", ["--version"]),
@@ -123,8 +133,7 @@ def check_js_runtime() -> tuple[bool, str]:
             if code == 0:
                 return True, f"{runtime} {out.split(chr(10))[0]}"
     return False, (
-        "No se detectó Node.js, Deno ni Bun. "
-        "Instala Node.js LTS para resolver desafíos JS de YouTube."
+        "No se detectó Node.js. Reinstala la app o ejecuta setup.bat de nuevo."
     )
 
 

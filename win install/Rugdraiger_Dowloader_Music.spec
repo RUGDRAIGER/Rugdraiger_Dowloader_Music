@@ -17,8 +17,12 @@ if assets_dir.exists():
         if asset.is_file():
             datas.append((str(asset), "assets"))
 binaries = []
-if (root / "bin" / "yt-dlp.exe").exists():
-    binaries.append((str(root / "bin" / "yt-dlp.exe"), "bin"))
+bin_dir_path = root / "bin"
+if bin_dir_path.exists():
+    for name in ("yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe", "node.exe"):
+        binary = bin_dir_path / name
+        if binary.exists():
+            binaries.append((str(binary), "bin"))
 
 hiddenimports = collect_submodules("customtkinter") + ["PIL", "PIL._tkinter_finder"]
 

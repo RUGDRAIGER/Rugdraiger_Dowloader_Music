@@ -33,6 +33,12 @@ if (-not (Test-Path $Ytdlp)) {
     Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile $Ytdlp -UseBasicParsing
 }
 
+Write-Step "Descargando ffmpeg y Node.js para empaquetar..."
+& $VenvPython (Join-Path $Root "scripts\fetch_runtime_deps.py")
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "ffmpeg/Node no descargados; el instalador puede fallar en algunas descargas."
+}
+
 $AssetsDir = Join-Path $WinInstall "assets"
 New-Item -ItemType Directory -Force -Path $AssetsDir | Out-Null
 $IconPng = Join-Path $AssetsDir "app-icon.png"

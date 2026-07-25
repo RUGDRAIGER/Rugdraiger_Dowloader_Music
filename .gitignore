@@ -7,8 +7,11 @@ venv/
 # Config local (puede contener rutas personales)
 config/settings.json
 
-# Descargas locales
+# Descargas locales (binarios grandes, no versionar)
 bin/yt-dlp.exe
+bin/ffmpeg.exe
+bin/ffprobe.exe
+bin/node.exe
 
 # Obsidian sensible
 OBSIDIAN/Meta/Sensibles/
@@ -29,4 +32,5 @@ win/
 
 # Pruebas locales
 test_dl/
+test_playlist/
 test_out.*

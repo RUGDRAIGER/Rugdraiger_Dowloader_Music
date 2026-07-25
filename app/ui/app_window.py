@@ -19,6 +19,8 @@ from app.core.dependencies import (
     update_ytdlp,
 )
 from app.core.downloader import DownloadJob, DownloadState, YtDlpDownloader
+from app.core.cookie_help import is_chromium_browser
+from app.core.validators import validate_playlist_items
 from app.theme import (
     APP_SUBTITLE,
     APP_TITLE,
@@ -186,10 +188,19 @@ class RugdraigerApp(ctk.CTk):
             row,
             textvariable=self.playlist_var,
             width=120,
-            placeholder_text="1-10 o vacío",
+            placeholder_text="vacío=todas | 1-5 | 1,3,7",
             fg_color=SURFACE_CONTAINER_HIGH,
             border_color=SURFACE_CONTAINER_HIGHEST,
         ).pack(side="left")
+
+        ctk.CTkLabel(
+            inner,
+            text="Playlist: pega el enlace de la playlist y deja «Ítems» vacío para bajar todas las canciones.",
+            font=FONT_BODY_SM,
+            text_color=TEXT_MUTED,
+            wraplength=820,
+            justify="left",
+        ).pack(anchor="w", pady=(6, 0))
 
     def _build_options_section(self) -> None:
         sec = self._section(self.outer, "Opciones de calidad")
@@ -274,6 +285,50 @@ class RugdraigerApp(ctk.CTk):
             button_color=NEON_RED_DIM,
             button_hover_color=NEON_RED,
         ).pack(side="left", padx=(12, 0))
+
+        cookies_file_row = ctk.CTkFrame(sec, fg_color="transparent")
+        cookies_file_row.pack(fill="x", padx=16, pady=(0, 4))
+
+        ctk.CTkLabel(
+            cookies_file_row,
+            text="Archivo cookies (.txt):",
+            font=FONT_LABEL,
+            text_color=TEXT_SECONDARY,
+            width=150,
+            anchor="w",
+        ).pack(side="left")
+
+        self.cookies_file_var = tk.StringVar(value=self.settings.cookies_file)
+        ctk.CTkEntry(
+            cookies_file_row,
+            textvariable=self.cookies_file_var,
+            font=FONT_BODY_SM,
+            fg_color=SURFACE_CONTAINER_HIGH,
+            border_color=BORDER_RED,
+            placeholder_text="Opcional — exporta con extensión Get cookies.txt LOCALLY",
+        ).pack(side="left", fill="x", expand=True, padx=(8, 8))
+
+        ctk.CTkButton(
+            cookies_file_row,
+            text="Examinar…",
+            width=90,
+            font=FONT_BODY_SM,
+            fg_color=SURFACE_CONTAINER_HIGHEST,
+            hover_color=NEON_RED_DIM,
+            command=self._pick_cookies_file,
+        ).pack(side="left")
+
+        ctk.CTkLabel(
+            sec,
+            text=(
+                "Chrome/Edge en Windows suelen bloquear cookies si el navegador está abierto. "
+                "Usa Firefox, cierra el navegador por completo o el archivo cookies.txt."
+            ),
+            font=FONT_BODY_SM,
+            text_color=TEXT_MUTED,
+            wraplength=820,
+            justify="left",
+        ).pack(fill="x", padx=16, pady=(0, 8))
 
         # Metadatos
         meta_row = ctk.CTkFrame(sec, fg_color="transparent")
@@ -438,8 +493,17 @@ class RugdraigerApp(ctk.CTk):
         self.settings.embed_metadata = self.meta_var.get()
         self.settings.use_cookies = self.cookies_var.get()
         self.settings.browser = self.browser_var.get()
+        self.settings.cookies_file = self.cookies_file_var.get().strip()
         self.settings.playlist_items = self.playlist_var.get()
         self.settings.save()
+
+    def _pick_cookies_file(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Seleccionar cookies.txt",
+            filetypes=[("Cookies Netscape", "*.txt"), ("Todos", "*.*")],
+        )
+        if path:
+            self.cookies_file_var.set(path)
 
     def _pick_folder(self) -> None:
         path = filedialog.askdirectory(initialdir=self.output_var.get())
@@ -461,7 +525,28 @@ class RugdraigerApp(ctk.CTk):
             messagebox.showwarning("URL inválida", "El enlace debe ser de YouTube Music o YouTube.")
             return
 
+        ok_items, err_items = validate_playlist_items(self.playlist_var.get())
+        if not ok_items:
+            messagebox.showwarning("Ítems playlist inválidos", err_items)
+            return
+
         self._save_settings()
+
+        if self.settings.use_cookies and not self.settings.cookies_file.strip():
+            browser = self.settings.browser
+            if is_chromium_browser(browser):
+                if not messagebox.askyesno(
+                    "Aviso cookies Chrome/Edge",
+                    (
+                        f"Has elegido «{browser}». En Windows a menudo falla si el "
+                        "navegador está abierto.\n\n"
+                        "¿Continuar igual?\n\n"
+                        "Recomendado: Firefox, cerrar Chrome/Edge por completo "
+                        "o usar archivo cookies.txt."
+                    ),
+                ):
+                    return
+
         self._set_download_ui(True)
         self.progress.set(0)
         self._set_status("Iniciando…", 0)

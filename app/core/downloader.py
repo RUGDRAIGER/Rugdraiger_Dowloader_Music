@@ -19,6 +19,9 @@ from app.core.dependencies import (
     find_ytdlp,
     js_runtime_args,
 )
+from app.core.url_utils import is_playlist_url
+from app.core.validators import normalize_playlist_items
+from app.core.cookie_help import cookie_error_message
 
 ProgressCallback = Callable[[str], None]
 StatusCallback = Callable[[str, float | None], None]
@@ -56,6 +59,8 @@ class YtDlpDownloader:
     MERGER_RE = re.compile(r"\[Merger\] Merging formats into \"(.+)\"")
     EXTRACT_AUDIO_RE = re.compile(r"\[ExtractAudio\] Destination: (.+)")
     ERROR_RE = re.compile(r"^ERROR: (.+)$")
+    PLAYLIST_COUNT_RE = re.compile(r"Downloading (\d+) items of playlist")
+    PLAYLIST_ITEM_RE = re.compile(r"\[download\] Downloading item (\d+) of (\d+)")
 
     def __init__(self) -> None:
         self._process: subprocess.Popen | None = None
@@ -78,20 +83,41 @@ class YtDlpDownloader:
         out.mkdir(parents=True, exist_ok=True)
         notes: list[str] = []
         has_ffmpeg = ffmpeg_available()
+        playlist_items = normalize_playlist_items(s.playlist_items)
+        if playlist_items != s.playlist_items.strip() and s.playlist_items.strip():
+            notes.append(
+                f"Items playlist corregidos: '{s.playlist_items.strip()}' -> '{playlist_items}'"
+            )
+        playlist_mode = is_playlist_url(job.url) or bool(playlist_items)
+
+        if playlist_mode:
+            filename = f"%(playlist_index)02d - {s.filename_template}.%(ext)s"
+        else:
+            filename = f"{s.filename_template}.%(ext)s"
 
         cmd: list[str] = [
             str(ytdlp),
+            "--no-update",
             "--no-playlist-reverse",
             "--ignore-errors",
             "--progress",
             "--newline",
-            "-o", str(out / f"{s.filename_template}.%(ext)s"),
+            "-o", str(out / filename),
         ]
         cmd.extend(js_runtime_args())
         cmd.extend(ffmpeg_location_args())
 
-        if s.playlist_items.strip():
-            cmd.extend(["--playlist-items", s.playlist_items.strip()])
+        if is_playlist_url(job.url):
+            cmd.append("--yes-playlist")
+            if playlist_items:
+                notes.append(f"Playlist: descargando ítems {playlist_items}.")
+            else:
+                notes.append("Playlist detectada: se descargarán TODAS las canciones.")
+        elif playlist_items:
+            notes.append(f"Descarga parcial de lista: ítems {playlist_items}.")
+
+        if playlist_items:
+            cmd.extend(["--playlist-items", playlist_items])
 
         fmt = s.audio_format.lower()
         embed_thumb = s.embed_thumbnail and has_ffmpeg
@@ -147,7 +173,12 @@ class YtDlpDownloader:
             cmd.extend(["--add-metadata", "--convert-thumbnails", "jpg"])
 
         if s.use_cookies:
-            cmd.extend(["--cookies-from-browser", s.browser])
+            cookies_path = Path(s.cookies_file.strip()) if s.cookies_file.strip() else None
+            if cookies_path and cookies_path.is_file():
+                cmd.extend(["--cookies", str(cookies_path)])
+                notes.append(f"Usando archivo cookies: {cookies_path.name}")
+            else:
+                cmd.extend(["--cookies-from-browser", s.browser])
 
         extractor_args = "youtube:player_client=android,web,default"
         if s.use_cookies:
@@ -176,6 +207,9 @@ class YtDlpDownloader:
         self._state = DownloadState.RUNNING
         last_file = ""
         last_errors: list[str] = []
+        downloaded_files: list[str] = []
+        playlist_total: int | None = None
+        playlist_current: int | None = None
 
         try:
             self._process = subprocess.Popen(
@@ -203,12 +237,32 @@ class YtDlpDownloader:
                 dest = self.DESTINATION_RE.search(line)
                 if dest:
                     last_file = dest.group(1)
+                    downloaded_files.append(last_file)
                 merger = self.MERGER_RE.search(line)
                 if merger:
                     last_file = merger.group(1)
+                    if last_file not in downloaded_files:
+                        downloaded_files.append(last_file)
                 extract = self.EXTRACT_AUDIO_RE.search(line)
                 if extract:
                     last_file = extract.group(1)
+                    if last_file not in downloaded_files:
+                        downloaded_files.append(last_file)
+
+                pl_count = self.PLAYLIST_COUNT_RE.search(line)
+                if pl_count:
+                    playlist_total = int(pl_count.group(1))
+
+                pl_item = self.PLAYLIST_ITEM_RE.search(line)
+                if pl_item:
+                    playlist_current = int(pl_item.group(1))
+                    playlist_total = int(pl_item.group(2))
+                    if on_status:
+                        pct = (playlist_current / playlist_total) * 100 if playlist_total else None
+                        on_status(
+                            f"Playlist: canción {playlist_current} de {playlist_total}",
+                            pct,
+                        )
 
                 pct_match = self.PROGRESS_RE.search(line)
                 if pct_match and on_status:
@@ -228,7 +282,14 @@ class YtDlpDownloader:
 
             if code == 0 or last_file:
                 self._state = DownloadState.SUCCESS
-                msg = f"Completado. Archivo: {last_file}" if last_file else "Descarga completada."
+                count = len(downloaded_files)
+                if count > 1:
+                    msg = f"Playlist completada: {count} canciones descargadas."
+                    msg += f"\nÚltima: {Path(last_file).name}"
+                elif last_file:
+                    msg = f"Completado. Archivo: {last_file}"
+                else:
+                    msg = "Descarga completada."
                 if notes:
                     msg += "\n\n" + "\n".join(notes)
                 if on_status:
@@ -237,11 +298,17 @@ class YtDlpDownloader:
 
             self._state = DownloadState.ERROR
             if last_errors:
-                detail = last_errors[-1]
+                detail = cookie_error_message(last_errors[-1])
                 if "ffmpeg" in detail.lower():
-                    detail += "\n\nInstala ffmpeg: winget install Gyan.FFmpeg"
+                    detail += "\n\nffmpeg deberia venir incluido. Reinstala la app."
                 return False, detail
-            return False, f"yt-dlp terminó con código {code}. Revisa el log."
+            if code == 2:
+                return False, (
+                    "Error de parametros en yt-dlp (codigo 2). "
+                    "Revisa «Items playlist» (usa 1-5 sin espacios, o vacio para todas) "
+                    "y el enlace pegado."
+                )
+            return False, f"yt-dlp termino con codigo {code}. Revisa el log."
 
         except Exception as exc:
             self._state = DownloadState.ERROR
@@ -254,9 +321,18 @@ class YtDlpDownloader:
         cmd.extend(js_runtime_args())
         cmd.extend(ffmpeg_location_args())
         if settings.use_cookies:
+            cookies_path = (
+                Path(settings.cookies_file.strip())
+                if settings.cookies_file.strip()
+                else None
+            )
+            if cookies_path and cookies_path.is_file():
+                cmd.extend(["--cookies", str(cookies_path)])
+            else:
+                cmd.extend(["--cookies-from-browser", settings.browser])
             cmd.extend([
-                "--cookies-from-browser", settings.browser,
-                "--extractor-args", "youtube:player_client=web_music,android,default;formats=missing_pot",
+                "--extractor-args",
+                "youtube:player_client=web_music,android,default;formats=missing_pot",
             ])
         else:
             cmd.extend(["--extractor-args", "youtube:player_client=android,web,default"])
