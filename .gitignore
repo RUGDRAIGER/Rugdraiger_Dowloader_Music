@@ -12,6 +12,7 @@ bin/yt-dlp.exe
 bin/ffmpeg.exe
 bin/ffprobe.exe
 bin/node.exe
+bin/yt-dlp
 
 # Obsidian sensible
 OBSIDIAN/Meta/Sensibles/
@@ -29,6 +30,9 @@ win install/pyinstaller-work/
 win install/pyinstaller-work-installer/
 win install/tools/
 win/
+build/
+dist/
+macos/app-icon.icns
 
 # Pruebas locales
 test_dl/

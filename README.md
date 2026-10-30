@@ -1,75 +1,113 @@
 # Rugdraiger Downloader Music
 
-Aplicación de escritorio **Windows** para descargar música de [YouTube Music](https://music.youtube.com) en la mejor calidad posible, usando [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Aplicación de escritorio para descargar audio de YouTube y YouTube Music mediante
+[yt-dlp](https://github.com/yt-dlp/yt-dlp). Compatible con macOS Apple Silicon
+(M1, M2, M3 y M4) y Windows 10/11.
 
-Interfaz visual alineada con [Rugdraiger Play](https://rugdraiger.github.io/rugdraiger_play/): fondo negro carbón, contorno rojo intenso, tipografías Montserrat + Inter.
+> Descarga únicamente contenido propio, con licencia compatible o para el cual
+> tengas autorización. Respeta los términos del servicio y la legislación local.
 
-## Calidad de audio
+## macOS Apple Silicon — instalación recomendada
 
-| Cuenta | Codec | Bitrate |
-|--------|-------|---------|
-| Gratuita | Opus | ~128 kbps |
-| Premium (con cookies) | AAC | ~256 kbps |
+Requiere macOS, conexión a Internet y [Homebrew](https://brew.sh). Desde Finder,
+haz doble clic en `setup_macos.command`; desde Terminal:
 
-**Recomendación:** usa formato **M4A** para conservar el AAC nativo sin re-codificar. Evita MP3 320 kbps sobre un origen ya comprimido.
+```zsh
+./setup_macos.command
+./run_macos.command
+```
 
-## Requisitos
+El instalador:
 
-- Windows 10/11
-- Conexión a Internet (solo para descargar música)
+- usa Python 3.13 arm64 y Tkinter nativo;
+- instala FFmpeg y Deno mediante Homebrew cuando faltan;
+- crea un entorno aislado en `.venv`;
+- obtiene el ejecutable universal oficial de yt-dlp;
+- ejecuta las pruebas antes de finalizar.
 
-**Incluido en el instalador** (no hace falta instalar nada más):
-- yt-dlp, **ffmpeg**, **Node.js**
+Los audios se guardan por defecto en `~/Music/Rugdraiger Downloads`. La
+configuración de una app empaquetada se guarda en
+`~/Library/Application Support/RugdraigerDownloader`.
 
-Para desarrollo local además necesitas Python 3.11+ y ejecutar `setup.bat` una vez.
+Si Gatekeeper impide abrir un `.command`, haz clic secundario sobre él, selecciona
+**Abrir** y confirma una sola vez.
 
-## Instalación rápida
+## Crear la aplicación `.app` para el M4
+
+```zsh
+./build_macos.command
+open "dist/Rugdraiger Downloader.app"
+```
+
+La compilación es nativa `arm64`, genera una aplicación sin consola y aplica una
+firma local ad hoc. Esa firma sirve para usarla en el mismo Mac. Distribuirla a
+otros equipos sin advertencias de Gatekeeper requiere un certificado Apple
+Developer ID y notarización.
+
+## Windows
 
 ```bat
 setup.bat
 run.bat
 ```
 
+El instalador de Windows continúa disponible en `win install/`. Los cambios del
+núcleo son multiplataforma y mantienen los ejecutables `.exe` en Windows.
+
 ## Uso
 
-1. Pega un enlace de canción, álbum o playlist de YouTube Music.
-2. Elige formato **m4a** (recomendado) u **opus**.
-3. Si tienes **YouTube Music Premium**, activa *Usar cookies del navegador* y selecciona tu navegador (Firefox suele ser más fiable que Chrome).
-4. Pulsa **DESCARGAR**.
+1. Pega una URL de canción, álbum o playlist de YouTube Music/YouTube.
+2. Selecciona `m4a`, `opus`, `mp3` o `best`.
+3. Para una playlist completa, deja **Ítems playlist** vacío; también acepta
+   rangos como `1-10` o listas como `1,3,7`.
+4. Opcionalmente activa cookies para usar tu sesión de YouTube Music.
+5. Pulsa **DESCARGAR**. Puedes cancelar el proceso o abrir la carpeta de destino
+   desde la propia aplicación.
 
-Los archivos se guardan en `~/Music/Rugdraiger Downloads` por defecto.
+### Formatos
 
-## YouTube Music Premium — cookies
+- `m4a`: prioriza AAC/M4A y evita recodificar cuando el origen ya es compatible.
+- `opus`: prioriza Opus y conserva el flujo compatible.
+- `mp3`: convierte explícitamente con FFmpeg; no mejora la calidad del origen.
+- `best`: conserva el mejor audio nativo que ofrece yt-dlp.
 
-Para acceder al flujo AAC 256 kbps:
+La calidad realmente disponible depende de YouTube, la cuenta, la región y el
+formato publicado. Un número de bitrate mayor no recupera información perdida.
 
-1. Inicia sesión en YouTube Music en el navegador elegido.
-2. Activa la opción de cookies en la app.
-3. Si obtienes errores de formato, usa Firefox o exporta cookies desde una ventana privada (ver [wiki yt-dlp PO Token](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)).
+## Cookies en macOS
 
-## Estructura del proyecto
+- Inicia sesión en el navegador seleccionado.
+- Si macOS solicita acceso al Llavero, concédelo a la aplicación.
+- Si Chrome/Brave bloquea la base de cookies, ciérralo completamente con `⌘Q`.
+- Firefox o un `cookies.txt` en formato Netscape suelen ser las opciones más
+  fiables.
+- No compartas ni versiones `cookies.txt`; permite acceso a tu sesión.
 
+## Desarrollo y verificación
+
+```zsh
+.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+.venv/bin/ruff check .
 ```
-├── regla_de_oro.txt      # Reglas de trabajo del proyecto
-├── main.py               # Entrada de la aplicación
-├── app/
-│   ├── theme.py          # Colores y tipografías Rugdraiger
-│   ├── config.py         # Configuración persistente
-│   ├── core/
-│   │   ├── downloader.py # Motor yt-dlp
-│   │   └── dependencies.py
-│   └── ui/
-│       └── app_window.py # Interfaz gráfica
-├── bin/                  # yt-dlp.exe (descargado por setup)
-└── OBSIDIAN/             # Bitácora y notas del proyecto
+
+`tests/test_playlist_download.py` es una prueba de integración manual que accede
+a YouTube y descarga archivos. Las pruebas unitarias normales no descargan audio.
+
+## Arquitectura
+
+```text
+main.py                    entrada de la aplicación
+app/config.py              preferencias persistentes
+app/paths.py               rutas por plataforma y por bundle
+app/core/dependencies.py   yt-dlp, FFmpeg y runtime JavaScript
+app/core/downloader.py     construcción y supervisión de descargas
+app/core/validators.py     validación de entradas
+app/ui/app_window.py       interfaz CustomTkinter
+macos/                     configuración PyInstaller arm64
+tests/                     pruebas unitarias e integración manual
 ```
 
-## Referencias
-
-- [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- [Extracción de audio (guía yt-dlp)](https://yt-dlp-yt-dlp.mintlify.app/guides/audio-extraction)
-- [Rugdraiger Play — Design System](https://github.com/RUGDRAIGER/rugdraiger_play/blob/main/Fuentes/DESIGN.md)
-
-## Aviso legal
-
-Descarga solo contenido para el que tengas derechos o permiso. Respeta los términos de servicio de YouTube Music y las leyes de copyright de tu país.
+El ejecutable de yt-dlp se mantiene fuera del bundle empaquetado para poder
+actualizarlo sin modificar la firma de la aplicación. La app detecta herramientas
+en su directorio privado, en el bundle, en el `PATH` y en las ubicaciones estándar
+de Homebrew para que también funcione al abrirla desde Finder.

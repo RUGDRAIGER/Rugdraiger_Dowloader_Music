@@ -38,4 +38,4 @@ FONT_BODY_FB = ("Segoe UI", 12)
 
 APP_TITLE = "Rugdraiger Downloader"
 APP_SUBTITLE = "YouTube Music · Alta calidad con yt-dlp"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"

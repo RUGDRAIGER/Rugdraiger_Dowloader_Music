@@ -6,7 +6,19 @@ import re
 from urllib.parse import parse_qs, urlparse
 
 PLAYLIST_ID_RE = re.compile(r"list=([a-zA-Z0-9_-]+)")
-PLAYLIST_PATH_RE = re.compile(r"/playlist\b", re.I)
+PLAYLIST_PATH_RE = re.compile(r"/playlist\b", re.IGNORECASE)
+YOUTUBE_HOSTS = frozenset(
+    {"youtube.com", "www.youtube.com", "music.youtube.com", "m.youtube.com", "youtu.be"}
+)
+
+
+def is_supported_url(url: str) -> bool:
+    """Valida una URL HTTP(S) de YouTube sin aceptar dominios de imitación."""
+    try:
+        parsed = urlparse(url.strip())
+    except ValueError:
+        return False
+    return parsed.scheme in {"http", "https"} and (parsed.hostname or "").lower() in YOUTUBE_HOSTS
 
 
 def is_playlist_url(url: str) -> bool:

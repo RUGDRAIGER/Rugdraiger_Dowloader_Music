@@ -2,24 +2,31 @@
 
 from __future__ import annotations
 
+import sys
+
 CHROMIUM_BROWSERS = frozenset(
     {"chrome", "chromium", "edge", "brave", "opera", "vivaldi", "whale"}
 )
 
-CHROME_COOKIE_ERROR_HELP = (
-    "No se pudieron leer las cookies de Chrome/Edge.\n\n"
-    "En Windows, estos navegadores bloquean el acceso a cookies mientras estan abiertos.\n\n"
-    "Soluciones (elige una):\n"
-    "1. RECOMENDADO: usa Firefox\n"
-    "   - Instala Firefox, inicia sesion en YouTube Music\n"
-    "   - En la app elige navegador: firefox\n\n"
-    "2. Cierra Chrome/Edge por completo y vuelve a intentar\n"
-    "   (incluido icono en bandeja del sistema)\n\n"
-    "3. Usa un archivo cookies.txt\n"
-    "   - Extension: Get cookies.txt LOCALLY (Chrome/Firefox)\n"
-    "   - En la app: boton «Archivo cookies...» y selecciona el .txt\n\n"
-    "Mas info: https://github.com/yt-dlp/yt-dlp/issues/7271"
-)
+def _chrome_cookie_error_help() -> str:
+    if sys.platform == "darwin":
+        platform_hint = (
+            "En macOS, permite el acceso al Llavero cuando el sistema lo solicite. "
+            "Si Chrome mantiene bloqueada su base de cookies, ciérralo por completo con ⌘Q."
+        )
+    else:
+        platform_hint = (
+            "Chrome/Edge pueden bloquear su base de cookies mientras siguen abiertos. "
+            "Ciérralos por completo, incluida la bandeja del sistema."
+        )
+    return (
+        "No se pudieron leer las cookies del navegador.\n\n"
+        f"{platform_hint}\n\n"
+        "Alternativas:\n"
+        "1. Usa Firefox con tu sesión de YouTube Music iniciada.\n"
+        "2. Exporta un cookies.txt en formato Netscape y selecciónalo en la app.\n"
+        "3. Comprueba que el perfil elegido contiene la sesión correcta."
+    )
 
 
 def is_chromium_browser(browser: str) -> bool:
@@ -30,7 +37,9 @@ def is_chromium_browser(browser: str) -> bool:
 def cookie_error_message(raw: str) -> str:
     lower = raw.lower()
     if "could not copy chrome cookie" in lower or "cookie database" in lower:
-        return CHROME_COOKIE_ERROR_HELP
+        return _chrome_cookie_error_help()
     if "cookies-from-browser" in lower and "permission" in lower:
-        return CHROME_COOKIE_ERROR_HELP
+        return _chrome_cookie_error_help()
+    if "keyring" in lower or "keychain" in lower:
+        return _chrome_cookie_error_help()
     return raw

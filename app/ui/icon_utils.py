@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import sys
 import tkinter as tk
-from pathlib import Path
 
 from PIL import Image, ImageTk
 
@@ -29,6 +27,6 @@ def apply_window_icon(window: tk.Misc) -> None:
         img = img.resize((64, 64), Image.Resampling.LANCZOS)
         photo = ImageTk.PhotoImage(img)
         window.iconphoto(True, photo)
-        window._rugdraiger_icon = photo  # noqa: SLF001 — evitar GC
+        window._rugdraiger_icon = photo
     except OSError:
         return

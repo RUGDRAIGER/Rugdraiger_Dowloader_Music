@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -11,16 +13,16 @@ import customtkinter as ctk
 from PIL import Image
 
 from app.config import AppSettings, ensure_dirs
-from app.paths import app_icon_path
-from app.ui.icon_utils import apply_window_icon
+from app.core.cookie_help import is_chromium_browser
 from app.core.dependencies import (
     dependency_report,
     ensure_ytdlp,
     update_ytdlp,
 )
 from app.core.downloader import DownloadJob, DownloadState, YtDlpDownloader
-from app.core.cookie_help import is_chromium_browser
+from app.core.url_utils import is_supported_url
 from app.core.validators import validate_playlist_items
+from app.paths import app_icon_path
 from app.theme import (
     APP_SUBTITLE,
     APP_TITLE,
@@ -46,6 +48,7 @@ from app.theme import (
     TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
+from app.ui.icon_utils import apply_window_icon
 
 
 def _pick_font(primary: tuple, fallback: tuple) -> tuple:
@@ -62,8 +65,8 @@ class RugdraigerApp(ctk.CTk):
         ctk.set_default_color_theme("dark-blue")
 
         self.title(f"{APP_TITLE} v{APP_VERSION}")
-        self.geometry("920x720")
-        self.minsize(780, 620)
+        self.geometry("980x840")
+        self.minsize(760, 650)
         self.configure(fg_color=SURFACE)
         apply_window_icon(self)
 
@@ -86,6 +89,13 @@ class RugdraigerApp(ctk.CTk):
             corner_radius=8,
         )
         self.outer.pack(fill="both", expand=True, padx=12, pady=12)
+        self.content = ctk.CTkScrollableFrame(
+            self.outer,
+            fg_color="transparent",
+            scrollbar_button_color=SURFACE_CONTAINER_HIGH,
+            scrollbar_button_hover_color=NEON_RED_DIM,
+        )
+        self.content.pack(fill="both", expand=True, padx=2, pady=2)
 
         self._build_header()
         self._build_url_section()
@@ -96,7 +106,7 @@ class RugdraigerApp(ctk.CTk):
         self._build_footer()
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self.outer, fg_color="transparent")
+        header = ctk.CTkFrame(self.content, fg_color="transparent")
         header.pack(fill="x", padx=24, pady=(20, 8))
 
         row = ctk.CTkFrame(header, fg_color="transparent")
@@ -159,7 +169,7 @@ class RugdraigerApp(ctk.CTk):
         return frame
 
     def _build_url_section(self) -> None:
-        sec = self._section(self.outer, "Enlace YouTube Music")
+        sec = self._section(self.content, "Enlace YouTube Music")
 
         inner = ctk.CTkFrame(sec, fg_color="transparent")
         inner.pack(fill="x", padx=16, pady=(0, 12))
@@ -203,7 +213,7 @@ class RugdraigerApp(ctk.CTk):
         ).pack(anchor="w", pady=(6, 0))
 
     def _build_options_section(self) -> None:
-        sec = self._section(self.outer, "Opciones de calidad")
+        sec = self._section(self.content, "Opciones de calidad")
 
         grid = ctk.CTkFrame(sec, fg_color="transparent")
         grid.pack(fill="x", padx=16, pady=(0, 12))
@@ -276,10 +286,13 @@ class RugdraigerApp(ctk.CTk):
         ).pack(side="left")
 
         self.browser_var = tk.StringVar(value=self.settings.browser)
+        browsers = ["firefox", "chrome", "edge", "brave", "chromium", "opera", "vivaldi"]
+        if sys.platform == "darwin":
+            browsers.append("safari")
         ctk.CTkOptionMenu(
             prem_row,
             variable=self.browser_var,
-            values=["firefox", "chrome", "edge", "brave", "chromium", "opera", "vivaldi"],
+            values=browsers,
             width=110,
             fg_color=SURFACE_CONTAINER_HIGH,
             button_color=NEON_RED_DIM,
@@ -321,8 +334,8 @@ class RugdraigerApp(ctk.CTk):
         ctk.CTkLabel(
             sec,
             text=(
-                "Chrome/Edge en Windows suelen bloquear cookies si el navegador está abierto. "
-                "Usa Firefox, cierra el navegador por completo o el archivo cookies.txt."
+                "Si el navegador bloquea las cookies, ciérralo por completo. En macOS, "
+                "acepta la solicitud del Llavero; Firefox o cookies.txt suelen ser más fiables."
             ),
             font=FONT_BODY_SM,
             text_color=TEXT_MUTED,
@@ -348,7 +361,7 @@ class RugdraigerApp(ctk.CTk):
         ).pack(side="left")
 
     def _build_actions(self) -> None:
-        row = ctk.CTkFrame(self.outer, fg_color="transparent")
+        row = ctk.CTkFrame(self.content, fg_color="transparent")
         row.pack(fill="x", padx=24, pady=4)
 
         self.btn_download = ctk.CTkButton(
@@ -397,6 +410,20 @@ class RugdraigerApp(ctk.CTk):
 
         ctk.CTkButton(
             row,
+            text="Abrir carpeta",
+            font=FONT_BODY,
+            fg_color="transparent",
+            border_color=SURFACE_CONTAINER_HIGHEST,
+            border_width=1,
+            hover_color=SURFACE_CONTAINER_HIGH,
+            text_color=TEXT_MUTED,
+            height=44,
+            width=110,
+            command=self._open_output_folder,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            row,
             text="Actualizar yt-dlp",
             font=FONT_BODY_SM,
             fg_color=SURFACE_CONTAINER_HIGH,
@@ -408,7 +435,7 @@ class RugdraigerApp(ctk.CTk):
         ).pack(side="right")
 
     def _build_progress(self) -> None:
-        prog_frame = ctk.CTkFrame(self.outer, fg_color="transparent")
+        prog_frame = ctk.CTkFrame(self.content, fg_color="transparent")
         prog_frame.pack(fill="x", padx=24, pady=(8, 4))
 
         self.status_label = ctk.CTkLabel(
@@ -430,7 +457,7 @@ class RugdraigerApp(ctk.CTk):
         self.progress.set(0)
 
     def _build_log(self) -> None:
-        sec = self._section(self.outer, "Log")
+        sec = self._section(self.content, "Log")
 
         self.log_box = ctk.CTkTextbox(
             sec,
@@ -446,7 +473,7 @@ class RugdraigerApp(ctk.CTk):
         self.log_box.configure(state="disabled")
 
     def _build_footer(self) -> None:
-        footer = ctk.CTkFrame(self.outer, fg_color="transparent")
+        footer = ctk.CTkFrame(self.content, fg_color="transparent")
         footer.pack(fill="x", padx=24, pady=(4, 16))
 
         self.deps_label = ctk.CTkLabel(
@@ -478,7 +505,7 @@ class RugdraigerApp(ctk.CTk):
         def worker() -> None:
             try:
                 ensure_ytdlp(lambda m: self._log(m))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - no dejar caer el hilo de inicio
                 self._log(f"Error yt-dlp: {exc}")
             report = dependency_report()
             text = " | ".join(f"{k}: {v}" for k, v in report.items())
@@ -510,6 +537,19 @@ class RugdraigerApp(ctk.CTk):
         if path:
             self.output_var.set(path)
 
+    def _open_output_folder(self) -> None:
+        path = Path(self.output_var.get()).expanduser()
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", str(path)])
+            elif sys.platform == "win32":
+                subprocess.Popen(["explorer", str(path)])
+            else:
+                subprocess.Popen(["xdg-open", str(path)])
+        except OSError as exc:
+            messagebox.showerror("No se pudo abrir la carpeta", str(exc))
+
     def _set_download_ui(self, running: bool) -> None:
         state_dl = "disabled" if running else "normal"
         state_cancel = "normal" if running else "disabled"
@@ -521,7 +561,7 @@ class RugdraigerApp(ctk.CTk):
         if not url:
             messagebox.showwarning("URL vacía", "Pega un enlace de YouTube Music.")
             return
-        if "music.youtube.com" not in url and "youtube.com" not in url and "youtu.be" not in url:
+        if not is_supported_url(url):
             messagebox.showwarning("URL inválida", "El enlace debe ser de YouTube Music o YouTube.")
             return
 
@@ -535,14 +575,18 @@ class RugdraigerApp(ctk.CTk):
         if self.settings.use_cookies and not self.settings.cookies_file.strip():
             browser = self.settings.browser
             if is_chromium_browser(browser):
+                platform_detail = (
+                    "macOS puede pedir permiso para acceder al Llavero y el navegador "
+                    "debe estar cerrado con ⌘Q."
+                    if sys.platform == "darwin"
+                    else "El navegador debe estar cerrado por completo."
+                )
                 if not messagebox.askyesno(
-                    "Aviso cookies Chrome/Edge",
+                    "Aviso de cookies",
                     (
-                        f"Has elegido «{browser}». En Windows a menudo falla si el "
-                        "navegador está abierto.\n\n"
+                        f"Has elegido «{browser}». {platform_detail}\n\n"
                         "¿Continuar igual?\n\n"
-                        "Recomendado: Firefox, cerrar Chrome/Edge por completo "
-                        "o usar archivo cookies.txt."
+                        "Alternativa: Firefox o un archivo cookies.txt."
                     ),
                 ):
                     return

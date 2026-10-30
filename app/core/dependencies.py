@@ -1,23 +1,35 @@
-"""Gestión de dependencias: yt-dlp, ffmpeg y runtime JS."""
+"""Gestión multiplataforma de yt-dlp, ffmpeg y el runtime JavaScript."""
 
 from __future__ import annotations
 
+import os
+import platform
 import shutil
 import subprocess
 import sys
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from app.config import BIN_DIR
+from app.paths import bundled_bin_dir
 
-YTDLP_RELEASE_URL = (
-    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-)
-YTDLP_PATH = BIN_DIR / "yt-dlp.exe"
-FFMPEG_PATH = BIN_DIR / "ffmpeg.exe"
-FFPROBE_PATH = BIN_DIR / "ffprobe.exe"
-NODE_PATH = BIN_DIR / "node.exe"
+ProgressCallback = Callable[[str], None]
+
+
+def _ytdlp_release() -> tuple[str, str]:
+    if sys.platform == "win32":
+        return "yt-dlp.exe", "yt-dlp.exe"
+    if sys.platform == "darwin":
+        return "yt-dlp", "yt-dlp_macos"
+    machine = platform.machine().lower()
+    asset = "yt-dlp_linux_aarch64" if machine in {"arm64", "aarch64"} else "yt-dlp_linux"
+    return "yt-dlp", asset
+
+
+YTDLP_NAME, YTDLP_ASSET = _ytdlp_release()
+YTDLP_RELEASE_URL = f"https://github.com/yt-dlp/yt-dlp/releases/latest/download/{YTDLP_ASSET}"
+YTDLP_PATH = BIN_DIR / YTDLP_NAME
 
 
 def _run(cmd: list[str], timeout: int = 15) -> tuple[int, str]:
@@ -28,56 +40,72 @@ def _run(cmd: list[str], timeout: int = 15) -> tuple[int, str]:
             text=True,
             timeout=timeout,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            check=False,
         )
-        out = (result.stdout or "") + (result.stderr or "")
-        return result.returncode, out.strip()
+        output = (result.stdout or "") + (result.stderr or "")
+        return result.returncode, output.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         return 1, str(exc)
 
 
-def find_ytdlp() -> Path | None:
-    if YTDLP_PATH.exists():
-        return YTDLP_PATH
-    which = shutil.which("yt-dlp")
-    if which:
-        return Path(which)
+def _tool_candidates(name: str) -> list[Path]:
+    executable = f"{name}.exe" if sys.platform == "win32" else name
+    candidates = [BIN_DIR / executable, bundled_bin_dir() / executable]
+    found = shutil.which(executable)
+    if found:
+        candidates.append(Path(found))
+    if sys.platform == "darwin":
+        candidates.extend(
+            [Path("/opt/homebrew/bin") / executable, Path("/usr/local/bin") / executable]
+        )
+    return candidates
+
+
+def _first_executable(name: str) -> Path | None:
+    for candidate in _tool_candidates(name):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return candidate
     return None
 
 
-def download_ytdlp(on_progress: Callable[[str], None] | None = None) -> Path:
+def find_ytdlp() -> Path | None:
+    return _first_executable("yt-dlp")
+
+
+def download_ytdlp(on_progress: ProgressCallback | None = None) -> Path:
     BIN_DIR.mkdir(parents=True, exist_ok=True)
     if on_progress:
-        on_progress("Descargando yt-dlp desde GitHub…")
-
-    req = urllib.request.Request(
+        on_progress(f"Descargando {YTDLP_ASSET} desde GitHub…")
+    request = urllib.request.Request(
         YTDLP_RELEASE_URL,
-        headers={"User-Agent": "Rugdraiger-Downloader/1.0"},
+        headers={"User-Agent": "Rugdraiger-Downloader/2.0"},
     )
-    with urllib.request.urlopen(req, timeout=120) as response:
-        YTDLP_PATH.write_bytes(response.read())
-
+    temporary = YTDLP_PATH.with_suffix(YTDLP_PATH.suffix + ".download")
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            temporary.write_bytes(response.read())
+        if sys.platform != "win32":
+            temporary.chmod(0o755)
+        temporary.replace(YTDLP_PATH)
+    finally:
+        temporary.unlink(missing_ok=True)
     if on_progress:
         on_progress(f"yt-dlp instalado en {YTDLP_PATH}")
     return YTDLP_PATH
 
 
-def ensure_ytdlp(on_progress: Callable[[str], None] | None = None) -> Path:
-    existing = find_ytdlp()
-    if existing:
-        return existing
-    return download_ytdlp(on_progress)
+def ensure_ytdlp(on_progress: ProgressCallback | None = None) -> Path:
+    return find_ytdlp() or download_ytdlp(on_progress)
 
 
 def find_ffmpeg() -> str | None:
-    if FFMPEG_PATH.exists():
-        return str(FFMPEG_PATH)
-    return shutil.which("ffmpeg")
+    path = _first_executable("ffmpeg")
+    return str(path) if path else None
 
 
 def find_ffprobe() -> str | None:
-    if FFPROBE_PATH.exists():
-        return str(FFPROBE_PATH)
-    return shutil.which("ffprobe")
+    path = _first_executable("ffprobe")
+    return str(path) if path else None
 
 
 def ffmpeg_available() -> bool:
@@ -86,78 +114,71 @@ def ffmpeg_available() -> bool:
 
 def ffmpeg_location_args() -> list[str]:
     ffmpeg = find_ffmpeg()
-    if not ffmpeg:
-        return []
-    return ["--ffmpeg-location", str(Path(ffmpeg).parent)]
+    return ["--ffmpeg-location", str(Path(ffmpeg).parent)] if ffmpeg else []
+
+
+def find_js_runtime() -> tuple[str, Path] | None:
+    for runtime in ("deno", "node", "quickjs", "bun"):
+        path = _first_executable(runtime)
+        if path:
+            return runtime, path
+    return None
 
 
 def js_runtime_args() -> list[str]:
-    if NODE_PATH.exists():
-        return ["--js-runtimes", f"node:{BIN_DIR}"]
-    for runtime in ("node", "deno", "bun"):
-        if shutil.which(runtime):
-            return ["--js-runtimes", runtime]
-    return []
+    runtime = find_js_runtime()
+    if not runtime:
+        return []
+    name, path = runtime
+    return ["--js-runtimes", f"{name}:{path}"]
 
 
 def check_ffmpeg() -> tuple[bool, str]:
     ffmpeg = find_ffmpeg()
     ffprobe = find_ffprobe()
     if ffmpeg and ffprobe:
-        code, out = _run([ffmpeg, "-version"])
-        version_line = out.split("\n")[0] if out else "desconocida"
-        if FFMPEG_PATH.exists() and Path(ffmpeg).resolve() == FFMPEG_PATH.resolve():
-            return True, f"{version_line} (incluido)"
-        return True, version_line
-    missing = []
-    if not ffmpeg:
-        missing.append("ffmpeg")
-    if not ffprobe:
-        missing.append("ffprobe")
-    return False, f"Faltan: {', '.join(missing)}. Instala ffmpeg y añádelo al PATH."
+        code, output = _run([ffmpeg, "-version"])
+        version = output.splitlines()[0] if output else "versión desconocida"
+        return code == 0, version
+    missing = [name for name, value in (("ffmpeg", ffmpeg), ("ffprobe", ffprobe)) if not value]
+    install = "brew install ffmpeg" if sys.platform == "darwin" else "instala ffmpeg en el PATH"
+    return False, f"Faltan: {', '.join(missing)}. Ejecuta: {install}."
 
 
 def check_js_runtime() -> tuple[bool, str]:
-    if NODE_PATH.exists():
-        code, out = _run([str(NODE_PATH), "--version"])
-        if code == 0:
-            version = out.split("\n")[0] if out else "incluido"
-            return True, f"node {version} (incluido)"
-    for runtime, args in (
-        ("node", ["--version"]),
-        ("deno", ["--version"]),
-        ("bun", ["--version"]),
-    ):
-        if shutil.which(runtime):
-            code, out = _run([runtime, *args])
-            if code == 0:
-                return True, f"{runtime} {out.split(chr(10))[0]}"
-    return False, (
-        "No se detectó Node.js. Reinstala la app o ejecuta setup.bat de nuevo."
-    )
+    runtime = find_js_runtime()
+    if not runtime:
+        install = "brew install deno" if sys.platform == "darwin" else "instala Deno o Node.js"
+        return False, f"No se detectó un runtime JavaScript. Ejecuta: {install}."
+    name, path = runtime
+    code, output = _run([str(path), "--version"])
+    version = output.splitlines()[0] if output else "versión desconocida"
+    return code == 0, f"{name}: {version}"
 
 
 def get_ytdlp_version(path: Path) -> str:
-    code, out = _run([str(path), "--version"])
-    return out if code == 0 else "desconocida"
+    code, output = _run([str(path), "--version"])
+    return output.splitlines()[0] if code == 0 and output else "desconocida"
 
 
-def update_ytdlp(on_progress: Callable[[str], None] | None = None) -> tuple[bool, str]:
+def update_ytdlp(on_progress: ProgressCallback | None = None) -> tuple[bool, str]:
     ytdlp = ensure_ytdlp(on_progress)
     if on_progress:
         on_progress("Actualizando yt-dlp…")
-    code, out = _run([str(ytdlp), "-U"], timeout=120)
+    code, output = _run([str(ytdlp), "-U"], timeout=120)
     if code == 0:
-        return True, out or "yt-dlp actualizado."
-    return False, out or "No se pudo actualizar yt-dlp."
+        return True, output or "yt-dlp actualizado."
+    if ytdlp.resolve() != YTDLP_PATH.resolve():
+        return False, "yt-dlp lo gestiona el sistema. Actualízalo con Homebrew o pip."
+    return False, output or "No se pudo actualizar yt-dlp."
 
 
 def dependency_report() -> dict[str, str]:
     ytdlp = find_ytdlp()
-    ffmpeg_ok, ffmpeg_msg = check_ffmpeg()
-    js_ok, js_msg = check_js_runtime()
+    ffmpeg_ok, ffmpeg_message = check_ffmpeg()
+    js_ok, js_message = check_js_runtime()
     return {
         "yt-dlp": get_ytdlp_version(ytdlp) if ytdlp else "No instalado",
-        "ffmpeg": ffmpeg_msg if ffmpeg_ok else f"[!] {ffmpeg_msg}",
-        "js_runtime": js_msg if js_ok else f"[!] {js_msg}",
+        "ffmpeg": ffmpeg_message if ffmpeg_ok else f"⚠ {ffmpeg_message}",
+        "js": js_message if js_ok else f"⚠ {js_message}",
     }

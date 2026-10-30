@@ -108,7 +108,7 @@ def main() -> int:
     try:
         ensure_ffmpeg()
         ensure_node()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - punto de entrada del instalador
         log(f"[ERROR] {exc}")
         return 1
 

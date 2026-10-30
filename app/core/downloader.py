@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import os
 import re
+import signal
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable
 
 from app.config import AppSettings
+from app.core.cookie_help import cookie_error_message
 from app.core.dependencies import (
     ensure_ytdlp,
     ffmpeg_available,
@@ -21,7 +24,6 @@ from app.core.dependencies import (
 )
 from app.core.url_utils import is_playlist_url
 from app.core.validators import normalize_playlist_items
-from app.core.cookie_help import cookie_error_message
 
 ProgressCallback = Callable[[str], None]
 StatusCallback = Callable[[str, float | None], None]
@@ -58,6 +60,7 @@ class YtDlpDownloader:
     DESTINATION_RE = re.compile(r"\[download\] Destination: (.+)")
     MERGER_RE = re.compile(r"\[Merger\] Merging formats into \"(.+)\"")
     EXTRACT_AUDIO_RE = re.compile(r"\[ExtractAudio\] Destination: (.+)")
+    FINAL_FILE_RE = re.compile(r"^__RUGDRAIGER_FILE__:(.+)$")
     ERROR_RE = re.compile(r"^ERROR: (.+)$")
     PLAYLIST_COUNT_RE = re.compile(r"Downloading (\d+) items of playlist")
     PLAYLIST_ITEM_RE = re.compile(r"\[download\] Downloading item (\d+) of (\d+)")
@@ -74,12 +77,18 @@ class YtDlpDownloader:
     def cancel(self) -> None:
         with self._lock:
             if self._process and self._process.poll() is None:
-                self._process.terminate()
                 self._state = DownloadState.CANCELLED
+                if sys.platform == "win32":
+                    self._process.terminate()
+                else:
+                    try:
+                        os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
+                    except (ProcessLookupError, PermissionError):
+                        self._process.terminate()
 
     def _build_command(self, job: DownloadJob, ytdlp: Path) -> tuple[list[str], list[str]]:
         s = job.settings
-        out = Path(s.output_dir)
+        out = Path(s.output_dir).expanduser()
         out.mkdir(parents=True, exist_ok=True)
         notes: list[str] = []
         has_ffmpeg = ffmpeg_available()
@@ -102,6 +111,9 @@ class YtDlpDownloader:
             "--ignore-errors",
             "--progress",
             "--newline",
+            "--no-colors",
+            "--trim-filenames", "180",
+            "--print", "after_move:__RUGDRAIGER_FILE__:%(filepath)s",
             "-o", str(out / filename),
         ]
         cmd.extend(js_runtime_args())
@@ -124,21 +136,22 @@ class YtDlpDownloader:
         embed_meta = s.embed_metadata and has_ffmpeg
 
         if not has_ffmpeg:
+            install_hint = "brew install ffmpeg" if sys.platform == "darwin" else "instala ffmpeg"
             notes.append(
                 "ffmpeg no detectado: descarga sin carátula/metadatos/remux. "
-                "Instala con: winget install Gyan.FFmpeg"
+                f"Solución: {install_hint}."
             )
 
         if has_ffmpeg:
             if fmt == "m4a":
                 cmd.extend([
-                    "-f", "ba[acodec^=mp4a.40.2]/ba[acodec^=mp4a.40.]/ba/b",
-                    "--remux-video", "m4a",
+                    "-f", "ba[ext=m4a]/ba[acodec^=mp4a.40.]/ba/b",
+                    "-x", "--audio-format", "m4a", "--audio-quality", "0",
                 ])
             elif fmt == "opus":
                 cmd.extend([
                     "-f", "ba[acodec=opus]/ba/b",
-                    "--remux-video", "opus",
+                    "-x", "--audio-format", "opus", "--audio-quality", "0",
                 ])
             elif fmt == "mp3":
                 cmd.extend([
@@ -169,8 +182,8 @@ class YtDlpDownloader:
         elif s.embed_metadata and not has_ffmpeg:
             notes.append("Metadatos embebidos omitidos (instala ffmpeg para activarlos).")
 
-        if embed_thumb or embed_meta:
-            cmd.extend(["--add-metadata", "--convert-thumbnails", "jpg"])
+        if embed_thumb:
+            cmd.extend(["--convert-thumbnails", "jpg"])
 
         if s.use_cookies:
             cookies_path = Path(s.cookies_file.strip()) if s.cookies_file.strip() else None
@@ -180,10 +193,11 @@ class YtDlpDownloader:
             else:
                 cmd.extend(["--cookies-from-browser", s.browser])
 
-        extractor_args = "youtube:player_client=android,web,default"
         if s.use_cookies:
-            extractor_args = "youtube:player_client=web_music,android,default;formats=missing_pot"
-        cmd.extend(["--extractor-args", extractor_args])
+            cmd.extend([
+                "--extractor-args",
+                "youtube:player_client=web_music,default;formats=missing_pot",
+            ])
 
         cmd.append(job.url)
         return cmd, notes
@@ -219,6 +233,7 @@ class YtDlpDownloader:
                 text=True,
                 bufsize=1,
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                start_new_session=sys.platform != "win32",
             )
 
             assert self._process.stdout is not None
@@ -234,20 +249,21 @@ class YtDlpDownloader:
                 if err:
                     last_errors.append(err.group(1))
 
+                final_file = self.FINAL_FILE_RE.match(line)
+                if final_file:
+                    last_file = final_file.group(1)
+                    if last_file not in downloaded_files:
+                        downloaded_files.append(last_file)
+
                 dest = self.DESTINATION_RE.search(line)
                 if dest:
                     last_file = dest.group(1)
-                    downloaded_files.append(last_file)
                 merger = self.MERGER_RE.search(line)
                 if merger:
                     last_file = merger.group(1)
-                    if last_file not in downloaded_files:
-                        downloaded_files.append(last_file)
                 extract = self.EXTRACT_AUDIO_RE.search(line)
                 if extract:
                     last_file = extract.group(1)
-                    if last_file not in downloaded_files:
-                        downloaded_files.append(last_file)
 
                 pl_count = self.PLAYLIST_COUNT_RE.search(line)
                 if pl_count:
@@ -280,7 +296,7 @@ class YtDlpDownloader:
             if self._state == DownloadState.CANCELLED:
                 return False, "Descarga cancelada."
 
-            if code == 0 or last_file:
+            if code == 0:
                 self._state = DownloadState.SUCCESS
                 count = len(downloaded_files)
                 if count > 1:
@@ -297,27 +313,32 @@ class YtDlpDownloader:
                 return True, msg
 
             self._state = DownloadState.ERROR
+            if downloaded_files:
+                return False, (
+                    f"Descarga incompleta: se guardaron {len(downloaded_files)} archivo(s), "
+                    "pero yt-dlp informó un error. Revisa el log."
+                )
             if last_errors:
                 detail = cookie_error_message(last_errors[-1])
                 if "ffmpeg" in detail.lower():
-                    detail += "\n\nffmpeg deberia venir incluido. Reinstala la app."
+                    detail += "\n\nComprueba FFmpeg en la sección de dependencias."
                 return False, detail
             if code == 2:
                 return False, (
-                    "Error de parametros en yt-dlp (codigo 2). "
-                    "Revisa «Items playlist» (usa 1-5 sin espacios, o vacio para todas) "
+                    "Error de parámetros en yt-dlp (código 2). "
+                    "Revisa «Ítems playlist» (usa 1-5 sin espacios, o vacío para todas) "
                     "y el enlace pegado."
                 )
-            return False, f"yt-dlp termino con codigo {code}. Revisa el log."
+            return False, f"yt-dlp terminó con código {code}. Revisa el log."
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - frontera de proceso externo
             self._state = DownloadState.ERROR
             return False, str(exc)
 
     def list_formats(self, url: str, settings: AppSettings) -> tuple[bool, str]:
         """Lista formatos disponibles (útil para diagnosticar calidad)."""
         ytdlp = find_ytdlp() or ensure_ytdlp()
-        cmd = [str(ytdlp), "--list-formats", url]
+        cmd = [str(ytdlp), "--no-colors", "--list-formats", url]
         cmd.extend(js_runtime_args())
         cmd.extend(ffmpeg_location_args())
         if settings.use_cookies:
@@ -332,10 +353,8 @@ class YtDlpDownloader:
                 cmd.extend(["--cookies-from-browser", settings.browser])
             cmd.extend([
                 "--extractor-args",
-                "youtube:player_client=web_music,android,default;formats=missing_pot",
+                "youtube:player_client=web_music,default;formats=missing_pot",
             ])
-        else:
-            cmd.extend(["--extractor-args", "youtube:player_client=android,web,default"])
         try:
             result = subprocess.run(
                 cmd,
@@ -343,8 +362,9 @@ class YtDlpDownloader:
                 text=True,
                 timeout=120,
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                check=False,
             )
             out = (result.stdout or "") + (result.stderr or "")
             return result.returncode == 0, out
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - error amigable para la interfaz
             return False, str(exc)
